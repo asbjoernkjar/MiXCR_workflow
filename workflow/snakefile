@@ -1,0 +1,13 @@
+import os
+import pandas as pd
+import sys
+configfile: "config/config.yaml"
+
+
+onstart:
+    if not os.path.isdir("results"):
+        os.mkdir("results")
+    os.system("mkdir -p logs/old; mv logs/*.{err,out} logs/old 2> /dev/null") #move logs, for convinience 
+
+
+
