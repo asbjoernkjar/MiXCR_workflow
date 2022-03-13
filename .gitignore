@@ -6,6 +6,11 @@
 #folders to ignore
 .snakemake
 logs
-results 
+results
+config
+
 #ignore mixcr folder
 mixcr-*
+
+#dont ignore config file
+!config/config.yaml
