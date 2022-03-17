@@ -25,7 +25,7 @@ onstart:
 def extract_from_sample(df,key_col,val_col , suffix = ""):
     """Function that can extract a datapoint from df"""
     def input_func(wildcards):
-        return suffix + df.loc[df[key_col] == wildcards.sample, val_col].iloc[0] 
+        return suffix + df.loc[df[key_col] == wildcards.sample, val_col].item()
     return input_func
 
 get_R1 = extract_from_sample(sample_df,sample_id_colname,R1_colname)
