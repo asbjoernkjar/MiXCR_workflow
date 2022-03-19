@@ -49,7 +49,7 @@ rule run_mixcr:
     """
     threads: 8 #possibly scale down? 
     resources:
-        walltime = "3:00:00",  
+        walltime = "12:00:00",  
         mem_mb = 8000,
     conda:
         "envs/MiXCR.yaml"
