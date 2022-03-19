@@ -1,11 +1,13 @@
 import os
 import pandas as pd
 import sys
+from pathlib import Path
 configfile: "config/config.yaml"
 
 
 #loading config file
-out_path = config["out_path"] if config["out_path"] is not None else "results"  #default = results
+out_path = Path(config["out_path"])   
+report_path = Path(config["report_path"])
 #getting colnames for controlling workflow
 sample_id_colname = config["Sample_ID_colname"]
 R1_colname = config["R1_colname"]
@@ -13,11 +15,11 @@ R2_colname = config["R1_colname"]
 
 #loading samples
 sample_df = pd.read_csv(config["sample_file"], sep = "\t", dtype = str)
-sample_df = sample_df.dropna(subset=[sample_id_colname, R1_colname,R2_colname]) #drop rows without sample
+sample_df = sample_df.dropna(subset=[sample_id_colname, R1_colname, R2_colname]) #drop rows without sample
 
 onstart:
-    if out_path == "results" and not os.path.isdir("results"): #make results if this is out_path
-        os.mkdir("results")
+    #if (out_path == Path("results") or report_path == Path("results")) and not os.path.isdir("results"): #make results if this is out_path
+    #    os.mkdir("results")
     os.system("mkdir -p logs/old; mv logs/*.{err,out} logs/old 2> /dev/null") #move logs, for convinience 
 
 
@@ -25,6 +27,7 @@ onstart:
 def extract_from_sample(df,key_col,val_col , suffix = ""):
     """Function that can extract a datapoint from df"""
     def input_func(wildcards):
+
         return suffix + df.loc[df[key_col] == wildcards.sample, val_col].item()
     return input_func
 
@@ -36,9 +39,11 @@ get_R2 = extract_from_sample(sample_df,sample_id_colname,R2_colname)
 
 rule all:
     input:
-        expand(out_path + "/{sample_name}.clonotypes.TRB.txt",
-        sample_name = sample_df[sample_id_colname].to_list())
-
+        #expand(out_path / "{sample_name}.report",
+        #    sample_name = sample_df[sample_id_colname].to_list()),
+        #expand(out_path + "/{sample_name}.clonotypes.TRB.txt",
+        #sample_name = sample_df[sample_id_colname].to_list()),
+        report_path / "final_MiXCR_report.tsv"
 
 
 rule run_mixcr:
@@ -47,7 +52,7 @@ rule run_mixcr:
     settings are optimized for AmpliSeq for Illumina TCR beta-SR Panel kit - using DNA material
     Exctract only TCR-beta clones --> others are false positives 
     """
-    threads: 8 #possibly scale down? 
+    threads: 8 
     resources:
         walltime = "12:00:00",  
         mem_mb = 8000,
@@ -57,13 +62,13 @@ rule run_mixcr:
         inp_R1 = get_R1,
         inp_R2 = get_R2,
     output:
-        out_clns = out_path + "/{sample}.clns",  #maybe change this ending?
-        out_vdjca = out_path + "/{sample}.vdjca",
-        out_TRB = out_path + "/{sample}.clonotypes.TRB.txt",
-        out_report = out_path + "/{sample}.report",
+        out_clns = out_path  / "{sample}.clns",  
+        out_vdjca = out_path / "{sample}.vdjca",
+        out_TRB = out_path / "{sample}.clonotypes.TRB.txt",
+        out_report = out_path / "{sample}.report",
     params:
         mixcr_jar = config["mixcr_jar_path"],
-        out_dir = out_path + "/{sample}", #note this is path + prefix of output files
+        out_dir = str(out_path / "{sample}"), #note this is path + prefix of output files
 
     shell:"""
     java -Xmx4g -Xms3g \
@@ -81,3 +86,30 @@ rule run_mixcr:
         {input.inp_R2} \
         {params.out_dir}
     """
+
+out_path = Path(out_path)
+
+rule report_mixcr:
+    """
+    Extracts usefull information from MiXCR report files into one dataframe
+    """
+    threads: 1 
+    resources:
+        walltime = "1:00:00",  
+        mem_mb = 4000,
+    input:
+        samples = expand(out_path / "{sample_name}.report",
+            sample_name = sample_df[sample_id_colname].to_list()),
+        clone_files = expand(out_path / "{sample_name}.clonotypes.TRB.txt",
+            sample_name = sample_df[sample_id_colname].to_list()), #not used, but ensures creation of files
+    output:
+        out_path = report_path / "final_MiXCR_report.tsv", 
+    params:
+        sample_id_colname = sample_id_colname
+    shell:"""
+    python workflow/scripts/gen_final_report.py \
+        --sample_id_name {params.sample_id_colname} \
+        --out_path {output.out_path} \
+        --samples {input.samples} \
+    """
+
