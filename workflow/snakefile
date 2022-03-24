@@ -8,24 +8,32 @@ configfile: "config/config.yaml"
 #loading config file
 out_path = Path(config["out_path"])   
 report_path = Path(config["report_path"])
+
 #getting colnames for controlling workflow
 sample_id_colname = config["Sample_ID_colname"]
 R1_colname = config["R1_colname"]
-R2_colname = config["R1_colname"]
+R2_colname = config["R2_colname"]
 
 #loading samples
 sample_df = pd.read_csv(config["sample_file"], sep = "\t", dtype = str)
-sample_df = sample_df.dropna(subset=[sample_id_colname, R1_colname, R2_colname]) #drop rows without sample
+sample_df = sample_df.dropna(subset=[sample_id_colname, R1_colname, R2_colname]) #drop rows without sample/paths
+
+#check if paths exists 
+for row in sample_df.iterrows():
+    if not os.path.isfile(row[1][R1_colname]) or not os.path.isfile(row[1][R2_colname]):
+        print(f"Wrong file path for sample {row[1][sample_id_colname]} with paths:\n{row[1][R1_colname]}\n{row[1][R2_colname]}")
+        sys.exit()
+
+
+
 
 onstart:
-    #if (out_path == Path("results") or report_path == Path("results")) and not os.path.isdir("results"): #make results if this is out_path
-    #    os.mkdir("results")
     os.system("mkdir -p logs/old; mv logs/*.{err,out} logs/old 2> /dev/null") #move logs, for convinience 
 
 
 #input fuction for fetching R1/R2 paths 
 def extract_from_sample(df,key_col,val_col , suffix = ""):
-    """Function that can extract a datapoint from df"""
+    """Function that can extract a datapoint from df - crashes on multiple matches"""
     def input_func(wildcards):
 
         return suffix + df.loc[df[key_col] == wildcards.sample, val_col].item()
@@ -39,12 +47,9 @@ get_R2 = extract_from_sample(sample_df,sample_id_colname,R2_colname)
 
 rule all:
     input:
-        #expand(out_path / "{sample_name}.report",
-        #    sample_name = sample_df[sample_id_colname].to_list()),
-        #expand(out_path + "/{sample_name}.clonotypes.TRB.txt",
-        #sample_name = sample_df[sample_id_colname].to_list()),
-        report_path / "final_MiXCR_report.tsv"
-
+        report_path / "final_MiXCR_report.tsv",
+        clone_files = expand(out_path / "{sample_name}.clonotypes.TRB.txt",
+            sample_name = sample_df[sample_id_colname].to_list())
 
 rule run_mixcr:
     """
@@ -87,7 +92,6 @@ rule run_mixcr:
         {params.out_dir}
     """
 
-out_path = Path(out_path)
 
 rule report_mixcr:
     """
@@ -100,8 +104,6 @@ rule report_mixcr:
     input:
         samples = expand(out_path / "{sample_name}.report",
             sample_name = sample_df[sample_id_colname].to_list()),
-        clone_files = expand(out_path / "{sample_name}.clonotypes.TRB.txt",
-            sample_name = sample_df[sample_id_colname].to_list()), #not used, but ensures creation of files
     output:
         out_path = report_path / "final_MiXCR_report.tsv", 
     params:

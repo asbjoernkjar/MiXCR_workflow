@@ -3,10 +3,16 @@ import re
 import argparse
 
 
+def to_num(s):
+    try:
+        return int(s)
+    except ValueError:
+        return float(s)
+
 def extract_info(sample, search_dic):
     """report = report file object""" 
     with open(sample) as report:
-        c = re.compile(r'\s\d+') #whitespace followed by number
+        c = re.compile(r'[-+]?[0-9]*\.?[0-9]+') #whitespace followed by number
         
         sample = sample.split("/")[-1].split(".report")[0]
         res_dic = {"Sample_ID":sample}
@@ -14,10 +20,11 @@ def extract_info(sample, search_dic):
         for line in report.readlines():
             for query in search_dic.keys():
                 if query in line:
-                    number = int(re.findall(c,line)[0].strip())
-                    print(search_dic[query])
+                    numbers =  re.findall(c,line)
+                    number = numbers[search_dic[query][1]]
+                    number = to_num(number)
 
-                    res_dic[search_dic[query]]=number
+                    res_dic[search_dic[query][0]]=number
 
     return res_dic
 
@@ -25,13 +32,15 @@ def extract_info(sample, search_dic):
 def create_report(  samples ):
 
     search_dic = {
-            "Total sequencing reads:":"Total_reads",
-            "Successfully aligned reads:":"Aligned_reads",
-            "Reads used in clonotypes, percent of total:":"Used_reads",
-            "Reads clustered in PCR error correction, percent of used:":"PCR_correct_dropped_reads",
-            "Clonotypes eliminated by PCR error correction:":"PCR_correct_dropped_clonotypes",
-            "TRB chains:":"N_clones", #will report second occurence = clonotype count
+            "Total sequencing reads:":("Total_reads", 0),
+            "Successfully aligned reads:":("Aligned_reads", 0),
+            "Reads used in clonotypes, percent of total:":("Used_reads", 0),
+            "Reads clustered in PCR error correction, percent of used:":("PCR_correct_dropped_reads", 0),
+            "Clonotypes eliminated by PCR error correction:":("PCR_correct_dropped_clonotypes", 0),
+            "TRB chains:":("N_clones", 0), #will report second occurence = clonotype count
+            "Overlapped:":("Fraction_overlapped", 1)
     }
+    
     out_list = []
 
     for sample in samples:

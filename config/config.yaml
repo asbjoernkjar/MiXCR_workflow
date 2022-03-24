@@ -1,10 +1,10 @@
-sample_file: config/mixcr_sample_file.tsv
+sample_file: /faststorage/project/TCRseq_AZ/Analysis/asbjoern/workflows/TCRseq_testdata/test_sample_file.tsv
 
-mixcr_jar_path: /faststorage/project/TCRseq_AZ/Analysis/asbjoern/mixcr-3.0.13/mixcr.jar
+mixcr_jar_path: /faststorage/project/TCRseq_AZ/Analysis/asbjoern/tools/mixcr-3.0.13/mixcr.jar
 
 out_path: results
-report_path: results
+report_path: ""
 
-Sample_ID_colname: Sample_ID
-R1_colname: TCR_R1_path
-R2_colname: TCR_R2_path
+Sample_ID_colname: Sample_ID_test_gz
+R1_colname: TCR_R1_path_test_gz
+R2_colname: TCR_R2_path_test_gz
